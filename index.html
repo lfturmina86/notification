@@ -1,20 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1f2c33">
-
-<script>
-  // Registra o Service Worker em segundo plano
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
-      .then(() => console.log('PWA Ativo com Sucesso!'))
-      .catch((err) => console.log('Erro ao registrar PWA:', err));
-  }
-</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Painel - Mensageiro MTZ</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1f2c33">
+    
     <style>
         :root { --primary: #1f2c33; --accent: #00a884; --bg: #f0f2f5; --text-main: #111b21; --text-sub: #667781; --danger: #ef4444; --warning: #f59e0b; --success: #10b981; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
@@ -52,6 +45,19 @@
         .nav-item.active { color: var(--accent); }
         .nav-icon { font-size: 1.4rem; }
     </style>
+
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(function(OneSignal) {
+        OneSignal.init({
+          appId: "d3b0b87d-2820-4a19-bd27-08eb483f9f44",
+          notifyButton: {
+            enable: true, 
+          },
+        });
+      });
+    </script>
 </head>
 <body>
 
@@ -77,27 +83,31 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-        // Importamos getDoc para buscar o perfil do usuário
         import { getFirestore, collection, onSnapshot, query, orderBy, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        // Registro do Service Worker (PWA)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+            .then(() => console.log('PWA Ativo com Sucesso!'))
+            .catch((err) => console.log('Erro ao registrar PWA:', err));
+        }
 
         const firebaseConfig = { apiKey: "AIzaSyAcayaTwgVdyGQJpMvvHF3AX7FXTEvFopY", authDomain: "mensageiro-mtz.firebaseapp.com", projectId: "mensageiro-mtz", storageBucket: "mensageiro-mtz.firebasestorage.app", messagingSenderId: "111747514886", appId: "1:111747514886:web:d87c69893640606efab987" };
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let currentUserName = "Usuário"; // Variável agora guarda o Nome, não o email
+        let currentUserName = "Usuário";
         let mostrandoResolvidas = false;
 
-        // --- BUSCA OS DADOS DO USUÁRIO AO LOGAR ---
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 try {
-                    // Vai na coleção 'usuarios' e busca o documento com o UID de quem logou
                     const docPerfil = await getDoc(doc(db, "usuarios", user.uid));
                     if (docPerfil.exists()) {
-                        currentUserName = docPerfil.data().nome; // Pega o nome real
+                        currentUserName = docPerfil.data().nome;
                     } else {
-                        currentUserName = user.email.split('@')[0]; // Fallback se não achar perfil
+                        currentUserName = user.email.split('@')[0];
                     }
                     document.getElementById('user-display').textContent = currentUserName;
                 } catch (e) {
@@ -110,7 +120,6 @@
 
         document.getElementById('btn-sair').addEventListener('click', () => signOut(auth));
 
-        // Filtros das abas
         const btnPendentes = document.getElementById('tab-pendentes');
         const btnResolvidas = document.getElementById('tab-resolvidas');
 
@@ -182,7 +191,6 @@
                 botao.addEventListener('click', async (e) => {
                     const idParaResolver = e.currentTarget.getAttribute('data-id');
                     try {
-                        // Salva o Nome do usuário em vez do e-mail
                         await updateDoc(doc(db, "notificacoes", idParaResolver), {
                             resolvido: true,
                             resolvidoPor: currentUserName, 

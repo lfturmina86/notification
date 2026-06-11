@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel Admin - Mensageiro MTZ</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1f2c33">
+
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
@@ -13,7 +17,6 @@
         .admin-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); width: 100%; max-width: 600px; margin-bottom: 20px; }
         .admin-card h2 { color: #1f2c33; margin-bottom: 20px; font-size: 1.3rem; border-bottom: 2px solid #00a884; padding-bottom: 10px; display: inline-block;}
         
-        /* Formulário de Envio */
         .input-group { margin-bottom: 15px; }
         .input-group label { display: block; font-size: 0.9rem; color: #111b21; margin-bottom: 5px; font-weight: 500; }
         .input-group input, .input-group select, .input-group textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; outline: none; }
@@ -24,7 +27,6 @@
         .btn-enviar:disabled { background-color: #99d4c8; cursor: not-allowed; }
         #msg-sucesso { display: none; color: #10b981; text-align: center; margin-top: 15px; font-weight: 500; }
 
-        /* Lista de Gerenciamento (Admin) */
         #area-gerenciamento { display: none; }
         .lista-admin { display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; padding-right: 5px; }
         .item-admin { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; }
@@ -35,7 +37,6 @@
         .status-pendente { background: #fef3c7; color: #d97706; }
         .status-resolvido { background: #d1fae5; color: #059669; }
         
-        /* Botões de Ação Admin */
         .acoes-admin { display: flex; gap: 5px; }
         .btn-deletar-admin { background: #fee2e2; color: #dc2626; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .btn-deletar-admin:hover { background: #ef4444; color: white; }
@@ -87,9 +88,12 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        // Importamos updateDoc para atualizar o status de volta para falso
         import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, deleteDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch((err) => console.log(err));
+        }
 
         const firebaseConfig = { apiKey: "AIzaSyAcayaTwgVdyGQJpMvvHF3AX7FXTEvFopY", authDomain: "mensageiro-mtz.firebaseapp.com", projectId: "mensageiro-mtz", storageBucket: "mensageiro-mtz.firebasestorage.app", messagingSenderId: "111747514886", appId: "1:111747514886:web:d87c69893640606efab987" };
         const app = initializeApp(firebaseConfig);
@@ -97,10 +101,10 @@
         const auth = getAuth(app);
 
         // ========================================================
-        // 🔒 CONTROLE DE ACESSO
+        // 🔒 CONTROLE DE ACESSO (Mude o e-mail aqui!)
         // ========================================================
         const emailsAdministradores = [
-            "luis@matrezan.com.br" // <-- Lembre-se de colocar seu e-mail real aqui!
+            "luis@matrezan.com.br"
         ];
 
         let currentUserEmail = "Desconhecido";
@@ -119,9 +123,7 @@
                     } else {
                         currentUserName = user.email.split('@')[0];
                     }
-                } catch (e) {
-                    console.error("Erro ao buscar perfil:", e);
-                }
+                } catch (e) { console.error(e); }
                 
                 if (emailsAdministradores.includes(currentUserEmail)) {
                     document.getElementById('area-gerenciamento').style.display = 'block';
@@ -131,9 +133,6 @@
             }
         });
 
-        // ========================================================
-        // FUNÇÃO 1: DISPARAR NOTIFICAÇÕES
-        // ========================================================
         const btnDisparar = document.getElementById('btn-disparar');
         const msgSucesso = document.getElementById('msg-sucesso');
 
@@ -148,6 +147,7 @@
             btnDisparar.textContent = "Enviando...";
 
             try {
+                // 1. Salva no banco de dados do Firebase
                 await addDoc(collection(db, "notificacoes"), {
                     titulo: titulo,
                     descricao: descricao,
@@ -156,6 +156,24 @@
                     criadoPorNome: currentUserName,
                     resolvido: false,
                     timestamp: serverTimestamp()
+                });
+
+                // 2. Dispara a Push Notification via OneSignal
+                const oneSignalAppId = "d3b0b87d-2820-4a19-bd27-08eb483f9f44";
+                const oneSignalApiKey = "os_v2_app_2oylq7jiebfbtpjhbdvuqp47isngifqrd3ruw4m3zdmplw43ue5ff7ldhzalujpewjfbf64ami3ijrq2y7abir5gb3mpfsz3cesyjkq";
+
+                await fetch("https://onesignal.com/api/v1/notifications", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json; charset=utf-8",
+                        "Authorization": `Basic ${oneSignalApiKey}`
+                    },
+                    body: JSON.stringify({
+                        app_id: oneSignalAppId,
+                        included_segments: ["All"], 
+                        headings: { "en": titulo, "pt": titulo },
+                        contents: { "en": descricao, "pt": descricao }
+                    })
                 });
 
                 document.getElementById('titulo-alerta').value = "";
@@ -171,9 +189,6 @@
             }
         });
 
-        // ========================================================
-        // FUNÇÃO 2: GERENCIAMENTO/EXCLUSÃO/REVERSÃO (Apenas Admins)
-        // ========================================================
         function carregarListaGerenciamento() {
             const listaDiv = document.getElementById('lista-notificacoes-admin');
             const q = query(collection(db, "notificacoes"), orderBy("timestamp", "desc"));
@@ -200,9 +215,7 @@
                     const item = document.createElement('div');
                     item.className = 'item-admin';
                     
-                    // Constrói os botões. Se estiver resolvido, adiciona o botão de Reverter.
                     let botoesAcao = `<button class="btn-deletar-admin" data-id="${id}" title="Excluir Definitivamente">🗑️</button>`;
-                    
                     if (n.resolvido) {
                         botoesAcao = `<button class="btn-reverter-admin" data-id="${id}" title="Voltar para Pendente">🔄 Reverter</button>` + botoesAcao;
                     }
@@ -222,36 +235,26 @@
                     listaDiv.appendChild(item);
                 });
 
-                // Lógica de exclusão
                 document.querySelectorAll('.btn-deletar-admin').forEach(botao => {
                     botao.addEventListener('click', async (e) => {
                         const idParaDeletar = e.currentTarget.getAttribute('data-id');
                         if(confirm("ATENÇÃO: Isso apagará a notificação do histórico. Deseja continuar?")) {
                             try {
                                 await deleteDoc(doc(db, "notificacoes", idParaDeletar));
-                            } catch (erro) {
-                                console.error("Erro ao deletar:", erro);
-                                alert("Erro ao excluir do banco de dados.");
-                            }
+                            } catch (erro) { console.error(erro); }
                         }
                     });
                 });
 
-                // Lógica de reversão (Remover o status de resolvido)
                 document.querySelectorAll('.btn-reverter-admin').forEach(botao => {
                     botao.addEventListener('click', async (e) => {
                         const idParaReverter = e.currentTarget.getAttribute('data-id');
                         if(confirm("Deseja voltar esta notificação para a lista de Pendentes?")) {
                             try {
                                 await updateDoc(doc(db, "notificacoes", idParaReverter), {
-                                    resolvido: false,
-                                    resolvidoPor: null, // Limpa quem resolveu
-                                    dataResolvido: null // Limpa a data de resolução
+                                    resolvido: false, resolvidoPor: null, dataResolvido: null
                                 });
-                            } catch (erro) {
-                                console.error("Erro ao reverter:", erro);
-                                alert("Erro ao atualizar o status.");
-                            }
+                            } catch (erro) { console.error(erro); }
                         }
                     });
                 });
