@@ -55,6 +55,7 @@
           notifyButton: {
             enable: true, 
           },
+          serviceWorkerParam: { scope: "/", path: "/sw.js" }
         });
       });
     </script>
@@ -85,7 +86,6 @@
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, query, orderBy, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-        // Registro do Service Worker (PWA)
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js')
             .then(() => console.log('PWA Ativo com Sucesso!'))
