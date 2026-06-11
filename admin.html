@@ -91,6 +91,7 @@
         import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, deleteDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
+        // Registro do PWA
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js').catch((err) => console.log(err));
         }
@@ -104,7 +105,7 @@
         // 🔒 CONTROLE DE ACESSO (Mude o e-mail aqui!)
         // ========================================================
         const emailsAdministradores = [
-            "luis@matrezan.com.br"
+            "luis@matrezan.com.br" // <--- ALTERE AQUI PARA O SEU E-MAIL
         ];
 
         let currentUserEmail = "Desconhecido";
@@ -158,31 +159,26 @@
                     timestamp: serverTimestamp()
                 });
 
-                // 2. Dispara a Push Notification via OneSignal
-                const oneSignalAppId = "d3b0b87d-2820-4a19-bd27-08eb483f9f44";
-                const oneSignalApiKey = "os_v2_app_2oylq7jiebfbtpjhbdvuqp47isngifqrd3ruw4m3zdmplw43ue5ff7ldhzalujpewjfbf64ami3ijrq2y7abir5gb3mpfsz3cesyjkq";
-
-                await fetch("/api/onesignal", {
+                // 2. Chama o nosso próprio servidor Vercel para estourar o alerta no celular
+                const resposta = await fetch("/api/disparar", {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json; charset=utf-8",
-                        "Authorization": `Basic ${oneSignalApiKey}`
-                    },
-                    body: JSON.stringify({
-                        app_id: oneSignalAppId,
-                        included_segments: ["All"], 
-                        headings: { "en": titulo, "pt": titulo },
-                        contents: { "en": descricao, "pt": descricao }
-                    })
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ titulo: titulo, descricao: descricao })
                 });
 
+                if (!resposta.ok) {
+                    throw new Error("Erro na ponte com o servidor da Vercel.");
+                }
+
+                // Limpa o formulário e confirma o envio
                 document.getElementById('titulo-alerta').value = "";
                 document.getElementById('desc-alerta').value = "";
                 msgSucesso.style.display = "block";
                 setTimeout(() => { msgSucesso.style.display = "none"; }, 3000);
+                
             } catch (erro) {
                 console.error("Erro:", erro);
-                alert("Falha ao enviar.");
+                alert("Falha ao enviar: " + erro.message);
             } finally {
                 btnDisparar.disabled = false;
                 btnDisparar.textContent = "Enviar para a Equipe";
