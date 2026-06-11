@@ -36,13 +36,13 @@
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
-      OneSignalDeferred.push(function(OneSignal) {
-        OneSignal.init({
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
           appId: "d3b0b87d-2820-4a19-bd27-08eb483f9f44",
+          safari_web_id: "web.onesignal.auto.5b1b15a7-d107-41ff-b02e-c379c8847bd2",
           notifyButton: {
-            enable: true, 
+            enable: true,
           },
-          serviceWorkerParam: { scope: "/", path: "/sw.js" }
         });
       });
     </script>
