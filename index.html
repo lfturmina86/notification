@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Painel - Mensageiro MTZ</title>
+    <title>Painel - Central de Alertas</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1f2c33">
@@ -17,7 +17,7 @@
         .user-badge { background: rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; }
         
         .filters { display: flex; gap: 10px; padding: 15px 20px; overflow-x: auto; background: white; border-bottom: 1px solid #ddd; }
-        .filter-chip { background: #e9edef; padding: 8px 16px; border-radius: 15px; font-size: 0.85rem; white-space: nowrap; color: var(--text-sub); cursor: pointer; border: none; outline: none; }
+        .filter-chip { background: #e9edef; padding: 8px 166px; border-radius: 15px; font-size: 0.85rem; white-space: nowrap; color: var(--text-sub); cursor: pointer; border: none; outline: none; }
         .filter-chip.active { background: var(--accent); color: white; }
         
         .notification-list { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 80px; }
@@ -49,13 +49,13 @@
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
-      OneSignalDeferred.push(function(OneSignal) {
-        OneSignal.init({
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
           appId: "d3b0b87d-2820-4a19-bd27-08eb483f9f44",
+          safari_web_id: "web.onesignal.auto.5b1b15a7-d107-41ff-b02e-c379c8847bd2",
           notifyButton: {
-            enable: true, 
+            enable: true,
           },
-          serviceWorkerParam: { scope: "/", path: "/sw.js" }
         });
       });
     </script>
