@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2c33">
+
+<script>
+  // Registra o Service Worker em segundo plano
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => console.log('PWA Ativo com Sucesso!'))
+      .catch((err) => console.log('Erro ao registrar PWA:', err));
+  }
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chat da Produção - MTZ</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #f0f2f5; height: 100vh; display: flex; flex-direction: column; }
+
+        .chat-header { background-color: #1f2c33; color: white; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 10; }
+        .chat-header .left-side { display: flex; align-items: center; gap: 15px; }
+        .chat-header .back-btn { text-decoration: none; font-size: 1.2rem; }
+        .chat-header h2 { font-size: 1.1rem; font-weight: 500; }
+        .user-badge { background: rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; }
+
+        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+
+        .message { max-width: 80%; padding: 8px 12px; border-radius: 8px; font-size: 0.95rem; line-height: 1.4; position: relative; word-wrap: break-word; display: flex; flex-direction: column; }
+        .message.received { background-color: #ffffff; align-self: flex-start; border-top-left-radius: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .message.sent { background-color: #dcf8c6; align-self: flex-end; border-top-right-radius: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        
+        .sender-name { font-size: 0.75rem; color: #00a884; font-weight: bold; margin-bottom: 4px; }
+        .message-time { font-size: 0.7rem; color: #667781; align-self: flex-end; margin-top: 5px; margin-left: 15px; }
+
+        .chat-footer { background-color: #ffffff; padding: 10px 15px; display: flex; align-items: center; gap: 10px; box-shadow: 0 -1px 5px rgba(0,0,0,0.05); }
+        .chat-footer input[type="text"] { flex: 1; padding: 12px 15px; border: 1px solid #ddd; border-radius: 20px; background-color: #f0f2f5; outline: none; font-size: 0.95rem; }
+        .chat-footer input[type="text"]:focus { border: 1px solid #00a884; }
+        .send-btn { background-color: #00a884; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+    <header class="chat-header">
+        <div class="left-side">
+            <a href="index.html" class="back-btn">⬅️</a>
+            <h2>Chat da Produção</h2>
+        </div>
+        <div class="user-badge" id="user-display">Carregando...</div>
+    </header>
+
+    <main class="chat-messages" id="area-mensagens"></main>
+
+    <footer class="chat-footer">
+        <input type="text" id="input-msg" placeholder="Digite uma mensagem..." autocomplete="off">
+        <button class="send-btn" id="btn-enviar">➤</button>
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        // Removemos as importações do Storage
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyAcayaTwgVdyGQJpMvvHF3AX7FXTEvFopY", authDomain: "mensageiro-mtz.firebaseapp.com", projectId: "mensageiro-mtz", storageBucket: "mensageiro-mtz.firebasestorage.app", messagingSenderId: "111747514886", appId: "1:111747514886:web:d87c69893640606efab987" };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let currentUserName = "Usuário";
+
+        // 1. CONTROLE DE USUÁRIO
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = "login.html";
+            } else {
+                currentUser = user;
+                try {
+                    const docPerfil = await getDoc(doc(db, "usuarios", user.uid));
+                    if (docPerfil.exists()) currentUserName = docPerfil.data().nome;
+                    else currentUserName = user.email.split('@')[0];
+                } catch (e) { console.error(e); }
+                
+                document.getElementById('user-display').textContent = currentUserName;
+            }
+        });
+
+        const inputMensagem = document.getElementById('input-msg');
+        const btnEnviar = document.getElementById('btn-enviar');
+        const areaMensagens = document.getElementById('area-mensagens');
+
+        // 2. ENVIAR MENSAGEM DE TEXTO
+        async function enviarMensagem() {
+            const texto = inputMensagem.value.trim();
+            if (texto === "" || !currentUser) return;
+
+            btnEnviar.disabled = true;
+            try {
+                await addDoc(collection(db, "mensagens"), {
+                    texto: texto,
+                    uid: currentUser.uid, 
+                    nome: currentUserName, 
+                    timestamp: serverTimestamp()
+                });
+                inputMensagem.value = "";
+            } catch (erro) {
+                console.error("Erro ao enviar:", erro);
+            } finally {
+                btnEnviar.disabled = false;
+                inputMensagem.focus();
+            }
+        }
+
+        btnEnviar.addEventListener('click', enviarMensagem);
+        inputMensagem.addEventListener('keypress', (e) => { if (e.key === 'Enter') enviarMensagem(); });
+
+        // 3. LER E EXIBIR MENSAGENS EM TEMPO REAL
+        const q = query(collection(db, "mensagens"), orderBy("timestamp", "asc"));
+
+        onSnapshot(q, (snapshot) => {
+            areaMensagens.innerHTML = "";
+
+            snapshot.forEach((docSnap) => {
+                const msg = docSnap.data();
+                
+                if(!msg.uid || !msg.texto) return; // Ignora mensagens sem texto (como fotos antigas) ou sem UID
+
+                const isMinha = currentUser && msg.uid === currentUser.uid;
+                const tipoBalao = isMinha ? "sent" : "received";
+                
+                let horaFormatada = "Agora";
+                if (msg.timestamp) horaFormatada = msg.timestamp.toDate().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+                const div = document.createElement("div");
+                div.className = `message ${tipoBalao}`;
+                
+                let htmlInterno = "";
+
+                if (!isMinha) {
+                    htmlInterno += `<span class="sender-name">${msg.nome}</span>`;
+                }
+
+                htmlInterno += `
+                    <span>${msg.texto}</span>
+                    <span class="message-time">${horaFormatada}</span>
+                `;
+
+                div.innerHTML = htmlInterno;
+                areaMensagens.appendChild(div);
+            });
+
+            areaMensagens.scrollTop = areaMensagens.scrollHeight;
+        });
+    </script>
+</body>
+</html>

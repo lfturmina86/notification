@@ -1,0 +1,18 @@
+{
+  "name": "Mensageiro MTZ",
+  "short_name": "MTZ Chat",
+  "description": "Sistema Interno de Alertas e Comunicação",
+  "start_url": "./login.html",
+  "display": "standalone",
+  "background_color": "#f0f2f5",
+  "theme_color": "#1f2c33",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5968/5968771.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

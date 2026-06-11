@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2c33">
+
+<script>
+  // Registra o Service Worker em segundo plano
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => console.log('PWA Ativo com Sucesso!'))
+      .catch((err) => console.log('Erro ao registrar PWA:', err));
+  }
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Login - Sistema Interno</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { 
+            background-color: #f0f2f5; 
+            height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 20px;
+        }
+
+        .login-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .login-card h2 { color: #1f2c33; margin-bottom: 5px; }
+        .login-card p { color: #667781; font-size: 0.9rem; margin-bottom: 25px; }
+
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-group label { display: block; font-size: 0.85rem; color: #111b21; margin-bottom: 5px; }
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+        }
+        .input-group input:focus { border-color: #00a884; }
+
+        .btn-login {
+            background-color: #00a884;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        .btn-login:hover { background-color: #008f6f; }
+        .btn-login:disabled { background-color: #99d4c8; cursor: not-allowed; }
+
+        .erro-msg { color: #ef4444; font-size: 0.85rem; margin-top: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <h2>Acesso Restrito</h2>
+        <p>Insira suas credenciais para continuar</p>
+
+        <div class="input-group">
+            <label for="email">E-mail</label>
+            <input type="email" id="email" placeholder="nome@empresa.com.br" required>
+        </div>
+
+        <div class="input-group">
+            <label for="senha">Senha</label>
+            <input type="password" id="senha" placeholder="••••••••" required>
+        </div>
+
+        <button class="btn-login" id="btn-entrar">Entrar no Sistema</button>
+        <p class="erro-msg" id="mensagem-erro">E-mail ou senha incorretos.</p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        // Importamos o módulo de Autenticação
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAcayaTwgVdyGQJpMvvHF3AX7FXTEvFopY",
+            authDomain: "mensageiro-mtz.firebaseapp.com",
+            projectId: "mensageiro-mtz",
+            storageBucket: "mensageiro-mtz.firebasestorage.app",
+            messagingSenderId: "111747514886",
+            appId: "1:111747514886:web:d87c69893640606efab987"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        const btnEntrar = document.getElementById('btn-entrar');
+        const inputEmail = document.getElementById('email');
+        const inputSenha = document.getElementById('senha');
+        const msgErro = document.getElementById('mensagem-erro');
+
+        btnEntrar.addEventListener('click', () => {
+            const email = inputEmail.value.trim();
+            const senha = inputSenha.value.trim();
+
+            if (!email || !senha) return;
+
+            btnEntrar.disabled = true;
+            btnEntrar.textContent = "Aguarde...";
+            msgErro.style.display = "none";
+
+            // Tenta fazer o login no Firebase
+            signInWithEmailAndPassword(auth, email, senha)
+                .then((userCredential) => {
+                    // Login com sucesso!
+                    const user = userCredential.user;
+                    console.log("Logado com:", user.email);
+                    // Redireciona para o painel principal
+                    window.location.href = "index.html"; 
+                })
+                .catch((error) => {
+                    // Falha no login
+                    console.error("Erro:", error.code);
+                    msgErro.style.display = "block";
+                    btnEntrar.disabled = false;
+                    btnEntrar.textContent = "Entrar no Sistema";
+                });
+        });
+    </script>
+</body>
+</html>

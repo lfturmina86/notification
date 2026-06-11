@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin - Mensageiro MTZ</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .header-admin { width: 100%; max-width: 600px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+        .header-admin a { text-decoration: none; color: #1f2c33; font-weight: bold; background: white; padding: 8px 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
+        
+        .admin-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); width: 100%; max-width: 600px; margin-bottom: 20px; }
+        .admin-card h2 { color: #1f2c33; margin-bottom: 20px; font-size: 1.3rem; border-bottom: 2px solid #00a884; padding-bottom: 10px; display: inline-block;}
+        
+        /* Formulário de Envio */
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 0.9rem; color: #111b21; margin-bottom: 5px; font-weight: 500; }
+        .input-group input, .input-group select, .input-group textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; outline: none; }
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus { border-color: #00a884; }
+        textarea { resize: vertical; min-height: 80px; }
+        .btn-enviar { background-color: #00a884; color: white; border: none; width: 100%; padding: 15px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-enviar:hover { background-color: #008f6f; }
+        .btn-enviar:disabled { background-color: #99d4c8; cursor: not-allowed; }
+        #msg-sucesso { display: none; color: #10b981; text-align: center; margin-top: 15px; font-weight: 500; }
+
+        /* Lista de Gerenciamento (Admin) */
+        #area-gerenciamento { display: none; }
+        .lista-admin { display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; padding-right: 5px; }
+        .item-admin { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; }
+        .item-admin-info { flex: 1; }
+        .item-admin-info strong { display: block; font-size: 0.95rem; color: #111b21; }
+        .item-admin-info span { font-size: 0.8rem; color: #667781; }
+        .badge-status { font-size: 0.75rem; padding: 3px 8px; border-radius: 10px; font-weight: bold; margin-top: 5px; display: inline-block; }
+        .status-pendente { background: #fef3c7; color: #d97706; }
+        .status-resolvido { background: #d1fae5; color: #059669; }
+        
+        /* Botões de Ação Admin */
+        .acoes-admin { display: flex; gap: 5px; }
+        .btn-deletar-admin { background: #fee2e2; color: #dc2626; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-deletar-admin:hover { background: #ef4444; color: white; }
+        .btn-reverter-admin { background: #e0e7ff; color: #4f46e5; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-reverter-admin:hover { background: #6366f1; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="header-admin">
+        <a href="index.html">⬅️ Voltar ao Painel</a>
+        <span id="badge-admin" style="display:none; background:#1f2c33; color:white; padding:5px 10px; border-radius:20px; font-size:0.8rem;">Modo Administrador</span>
+    </div>
+
+    <div class="admin-card">
+        <h2>Disparar Nova Notificação</h2>
+
+        <div class="input-group">
+            <label>Tipo de Alerta</label>
+            <select id="tipo-alerta">
+                <option value="info">✅ Informativo (Verde)</option>
+                <option value="alert">🕒 Aviso / Atenção (Amarelo)</option>
+                <option value="error">⚠️ Urgente / Erro (Vermelho)</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label>Título Breve</label>
+            <input type="text" id="titulo-alerta" placeholder="Ex: Manutenção na CNC programada" required>
+        </div>
+
+        <div class="input-group">
+            <label>Descrição Detalhada</label>
+            <textarea id="desc-alerta" placeholder="Ex: A máquina será parada às 14:00 para troca de fresas." required></textarea>
+        </div>
+
+        <button class="btn-enviar" id="btn-disparar">Enviar para a Equipe</button>
+        <div id="msg-sucesso">Alerta enviado com sucesso!</div>
+    </div>
+
+    <div class="admin-card" id="area-gerenciamento">
+        <h2>Gerenciamento do Banco de Dados</h2>
+        <p style="font-size: 0.85rem; color: #667781; margin-bottom: 15px;">Atenção: Modificações feitas aqui refletem instantaneamente no painel de toda a equipe.</p>
+        
+        <div class="lista-admin" id="lista-notificacoes-admin">
+            Carregando notificações...
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        // Importamos updateDoc para atualizar o status de volta para falso
+        import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, deleteDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyAcayaTwgVdyGQJpMvvHF3AX7FXTEvFopY", authDomain: "mensageiro-mtz.firebaseapp.com", projectId: "mensageiro-mtz", storageBucket: "mensageiro-mtz.firebasestorage.app", messagingSenderId: "111747514886", appId: "1:111747514886:web:d87c69893640606efab987" };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // ========================================================
+        // 🔒 CONTROLE DE ACESSO
+        // ========================================================
+        const emailsAdministradores = [
+            "luis@matrezan.com.br" // <-- Lembre-se de colocar seu e-mail real aqui!
+        ];
+
+        let currentUserEmail = "Desconhecido";
+        let currentUserName = "Sistema";
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = "login.html";
+            } else {
+                currentUserEmail = user.email;
+
+                try {
+                    const docPerfil = await getDoc(doc(db, "usuarios", user.uid));
+                    if (docPerfil.exists()) {
+                        currentUserName = docPerfil.data().nome;
+                    } else {
+                        currentUserName = user.email.split('@')[0];
+                    }
+                } catch (e) {
+                    console.error("Erro ao buscar perfil:", e);
+                }
+                
+                if (emailsAdministradores.includes(currentUserEmail)) {
+                    document.getElementById('area-gerenciamento').style.display = 'block';
+                    document.getElementById('badge-admin').style.display = 'inline-block';
+                    carregarListaGerenciamento();
+                }
+            }
+        });
+
+        // ========================================================
+        // FUNÇÃO 1: DISPARAR NOTIFICAÇÕES
+        // ========================================================
+        const btnDisparar = document.getElementById('btn-disparar');
+        const msgSucesso = document.getElementById('msg-sucesso');
+
+        btnDisparar.addEventListener('click', async () => {
+            const gravidade = document.getElementById('tipo-alerta').value;
+            const titulo = document.getElementById('titulo-alerta').value.trim();
+            const descricao = document.getElementById('desc-alerta').value.trim();
+
+            if (!titulo || !descricao) return alert("Preencha o título e a descrição.");
+
+            btnDisparar.disabled = true;
+            btnDisparar.textContent = "Enviando...";
+
+            try {
+                await addDoc(collection(db, "notificacoes"), {
+                    titulo: titulo,
+                    descricao: descricao,
+                    gravidade: gravidade,
+                    criadoPor: currentUserEmail,
+                    criadoPorNome: currentUserName,
+                    resolvido: false,
+                    timestamp: serverTimestamp()
+                });
+
+                document.getElementById('titulo-alerta').value = "";
+                document.getElementById('desc-alerta').value = "";
+                msgSucesso.style.display = "block";
+                setTimeout(() => { msgSucesso.style.display = "none"; }, 3000);
+            } catch (erro) {
+                console.error("Erro:", erro);
+                alert("Falha ao enviar.");
+            } finally {
+                btnDisparar.disabled = false;
+                btnDisparar.textContent = "Enviar para a Equipe";
+            }
+        });
+
+        // ========================================================
+        // FUNÇÃO 2: GERENCIAMENTO/EXCLUSÃO/REVERSÃO (Apenas Admins)
+        // ========================================================
+        function carregarListaGerenciamento() {
+            const listaDiv = document.getElementById('lista-notificacoes-admin');
+            const q = query(collection(db, "notificacoes"), orderBy("timestamp", "desc"));
+
+            onSnapshot(q, (snapshot) => {
+                listaDiv.innerHTML = "";
+
+                if (snapshot.empty) {
+                    listaDiv.innerHTML = "<p style='text-align:center; color:#667781;'>Banco de dados vazio.</p>";
+                    return;
+                }
+
+                snapshot.forEach(docSnap => {
+                    const n = docSnap.data();
+                    const id = docSnap.id;
+                    
+                    let dataFormatada = "Data desconhecida";
+                    if(n.timestamp) dataFormatada = n.timestamp.toDate().toLocaleDateString('pt-BR') + " às " + n.timestamp.toDate().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+                    const statusClass = n.resolvido ? "status-resolvido" : "status-pendente";
+                    const statusTexto = n.resolvido ? "✅ Resolvido" : "⚠️ Pendente";
+                    const nomeExibicao = n.criadoPorNome || n.criadoPor || 'Sistema';
+
+                    const item = document.createElement('div');
+                    item.className = 'item-admin';
+                    
+                    // Constrói os botões. Se estiver resolvido, adiciona o botão de Reverter.
+                    let botoesAcao = `<button class="btn-deletar-admin" data-id="${id}" title="Excluir Definitivamente">🗑️</button>`;
+                    
+                    if (n.resolvido) {
+                        botoesAcao = `<button class="btn-reverter-admin" data-id="${id}" title="Voltar para Pendente">🔄 Reverter</button>` + botoesAcao;
+                    }
+
+                    item.innerHTML = `
+                        <div class="item-admin-info">
+                            <strong>${n.titulo}</strong>
+                            <span>Enviado por: ${nomeExibicao} em ${dataFormatada}</span>
+                            <br>
+                            <span class="badge-status ${statusClass}">${statusTexto}</span>
+                        </div>
+                        <div class="acoes-admin">
+                            ${botoesAcao}
+                        </div>
+                    `;
+                    
+                    listaDiv.appendChild(item);
+                });
+
+                // Lógica de exclusão
+                document.querySelectorAll('.btn-deletar-admin').forEach(botao => {
+                    botao.addEventListener('click', async (e) => {
+                        const idParaDeletar = e.currentTarget.getAttribute('data-id');
+                        if(confirm("ATENÇÃO: Isso apagará a notificação do histórico. Deseja continuar?")) {
+                            try {
+                                await deleteDoc(doc(db, "notificacoes", idParaDeletar));
+                            } catch (erro) {
+                                console.error("Erro ao deletar:", erro);
+                                alert("Erro ao excluir do banco de dados.");
+                            }
+                        }
+                    });
+                });
+
+                // Lógica de reversão (Remover o status de resolvido)
+                document.querySelectorAll('.btn-reverter-admin').forEach(botao => {
+                    botao.addEventListener('click', async (e) => {
+                        const idParaReverter = e.currentTarget.getAttribute('data-id');
+                        if(confirm("Deseja voltar esta notificação para a lista de Pendentes?")) {
+                            try {
+                                await updateDoc(doc(db, "notificacoes", idParaReverter), {
+                                    resolvido: false,
+                                    resolvidoPor: null, // Limpa quem resolveu
+                                    dataResolvido: null // Limpa a data de resolução
+                                });
+                            } catch (erro) {
+                                console.error("Erro ao reverter:", erro);
+                                alert("Erro ao atualizar o status.");
+                            }
+                        }
+                    });
+                });
+            });
+        }
+    </script>
+</body>
+</html>

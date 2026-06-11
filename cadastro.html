@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2c33">
+
+<script>
+  // Registra o Service Worker em segundo plano
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => console.log('PWA Ativo com Sucesso!'))
+      .catch((err) => console.log('Erro ao registrar PWA:', err));
+  }
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro de Equipe - Admin</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .header-admin { width: 100%; max-width: 500px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+        .header-admin a { text-decoration: none; color: #1f2c33; font-weight: bold; background: white; padding: 8px 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
+        
+        .admin-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); width: 100%; max-width: 500px; }
+        .admin-card h2 { color: #1f2c33; margin-bottom: 20px; font-size: 1.3rem; border-bottom: 2px solid #00a884; padding-bottom: 10px; display: inline-block;}
+        
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 0.9rem; color: #111b21; margin-bottom: 5px; font-weight: 500; }
+        .input-group input, .input-group select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; outline: none; }
+        .input-group input:focus, .input-group select:focus { border-color: #00a884; }
+        
+        /* Divisor visual para separar dados de login de dados de perfil */
+        .divisor { margin: 20px 0; border-top: 1px dashed #ccc; padding-top: 15px; color: #667781; font-size: 0.85rem; font-weight: bold; text-transform: uppercase; }
+
+        .btn-salvar { background-color: #00a884; color: white; border: none; width: 100%; padding: 15px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-salvar:hover { background-color: #008f6f; }
+        .btn-salvar:disabled { background-color: #99d4c8; cursor: not-allowed; }
+        #msg-sucesso { display: none; color: #10b981; text-align: center; margin-top: 15px; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+    <div class="header-admin">
+        <a href="admin.html">⬅️ Voltar ao Admin</a>
+    </div>
+
+    <div class="admin-card">
+        <h2>Cadastrar Novo Funcionário</h2>
+
+        <div class="divisor">Dados de Login (Acesso)</div>
+
+        <div class="input-group">
+            <label>E-mail Corporativo</label>
+            <input type="email" id="cad-email" placeholder="nome@empresa.com.br" required>
+        </div>
+
+        <div class="input-group">
+            <label>Senha Provisória</label>
+            <input type="password" id="cad-senha" placeholder="Mínimo 6 caracteres" required>
+        </div>
+
+        <div class="divisor">Perfil do Colaborador</div>
+
+        <div class="input-group">
+            <label>Nome Completo</label>
+            <input type="text" id="cad-nome" placeholder="Ex: Carlos Silva" required>
+        </div>
+
+        <div class="input-group">
+            <label>Setor</label>
+            <select id="cad-setor">
+                <option value="Projetos e P&D">Projetos e P&D</option>
+                <option value="Usinagem CNC">Usinagem CNC</option>
+                <option value="Montagem e Acabamento">Montagem e Acabamento</option>
+                <option value="Gerência">Gerência</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label>Cargo / Função</label>
+            <input type="text" id="cad-cargo" placeholder="Ex: Operador de Máquina" required>
+        </div>
+
+        <button class="btn-salvar" id="btn-cadastrar">Criar Usuário e Salvar Dados</button>
+        <div id="msg-sucesso">Funcionário cadastrado com sucesso!</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        // Importamos o Auth para criar a senha e o Firestore para criar o perfil
+        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyAcayaTwgVdyGQJpMvvHF3AX7FXTEvFopY", authDomain: "mensageiro-mtz.firebaseapp.com", projectId: "mensageiro-mtz", storageBucket: "mensageiro-mtz.firebasestorage.app", messagingSenderId: "111747514886", appId: "1:111747514886:web:d87c69893640606efab987" };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const btnCadastrar = document.getElementById('btn-cadastrar');
+        const msgSucesso = document.getElementById('msg-sucesso');
+
+        btnCadastrar.addEventListener('click', async () => {
+            const email = document.getElementById('cad-email').value.trim();
+            const senha = document.getElementById('cad-senha').value.trim();
+            const nome = document.getElementById('cad-nome').value.trim();
+            const setor = document.getElementById('cad-setor').value;
+            const cargo = document.getElementById('cad-cargo').value.trim();
+
+            if (!email || !senha || !nome || !cargo) {
+                return alert("Por favor, preencha todos os campos.");
+            }
+
+            if (senha.length < 6) {
+                return alert("A senha deve ter pelo menos 6 caracteres.");
+            }
+
+            btnCadastrar.disabled = true;
+            btnCadastrar.textContent = "Processando...";
+
+            try {
+                // PASSO 1: Cria o acesso no Authentication (Cofre de senhas)
+                const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
+                const uid = userCredential.user.uid; // Pega a ID única (UID) gerada pelo Google
+
+                // PASSO 2: Cria o documento no Firestore com o mesmo UID
+                // Usamos doc() e setDoc() em vez de addDoc() para forçar o nome do arquivo a ser igual ao UID
+                await setDoc(doc(db, "usuarios", uid), {
+                    nome: nome,
+                    email: email,
+                    setor: setor,
+                    cargo: cargo,
+                    data_cadastro: serverTimestamp(),
+                    ativo: true
+                });
+
+                // Limpa o formulário
+                document.getElementById('cad-email').value = "";
+                document.getElementById('cad-senha').value = "";
+                document.getElementById('cad-nome').value = "";
+                document.getElementById('cad-cargo').value = "";
+                
+                msgSucesso.style.display = "block";
+                setTimeout(() => { msgSucesso.style.display = "none"; }, 4000);
+
+            } catch (erro) {
+                console.error("Erro ao cadastrar:", erro);
+                if (erro.code === 'auth/email-already-in-use') {
+                    alert("Este e-mail já está cadastrado no sistema.");
+                } else {
+                    alert("Erro ao cadastrar usuário. Verifique os dados.");
+                }
+            } finally {
+                btnCadastrar.disabled = false;
+                btnCadastrar.textContent = "Criar Usuário e Salvar Dados";
+            }
+        });
+    </script>
+</body>
+</html>
