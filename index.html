@@ -225,11 +225,11 @@
 
                 let divActions = `<div style="display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; flex-wrap: wrap;">`;
                 if (!notif.resolvido) {
-                    divActions += `<button class="btn-secundary btn-complementar" data-id="${notif.id}">💬 Observação</button>`;
-                    divActions += `<button class="btn-resolver" data-id="${notif.id}">✅ Marcar Resolvido</button>`;
+                    divActions += `<button class="btn-secundary btn-complementar" data-id="${notif.id}" data-titulo="${notif.titulo}">💬 Observação</button>`;
+                    divActions += `<button class="btn-resolver" data-id="${notif.id}" data-titulo="${notif.titulo}">✅ Marcar Resolvido</button>`;
                 } else {
-                    divActions += `<button class="btn-secundary btn-complementar" data-id="${notif.id}">💬 Observação</button>`;
-                    divActions += `<button class="btn-reverter" style="background:#e9edef; border:none; padding:8px 15px; border-radius:8px; cursor:pointer;" data-id="${notif.id}">🔄 Reabrir Alerta</button>`;
+                    divActions += `<button class="btn-secundary btn-complementar" data-id="${notif.id}" data-titulo="${notif.titulo}">💬 Observação</button>`;
+                    divActions += `<button class="btn-reverter" style="background:#e9edef; border:none; padding:8px 15px; border-radius:8px; cursor:pointer;" data-id="${notif.id}" data-titulo="${notif.titulo}">🔄 Reabrir Alerta</button>`;
                 }
                 divActions += `</div>`;
                 
@@ -242,12 +242,14 @@
                 botao.addEventListener('click', async (e) => {
                     if(!confirm("Tem certeza que deseja marcar este alerta como resolvido?")) return;
                     const idParaResolver = e.currentTarget.getAttribute('data-id');
+                    const tituloNotif = e.currentTarget.getAttribute('data-titulo');
                     try {
                         await updateDoc(doc(db, "notificacoes", idParaResolver), {
                             resolvido: true,
                             resolvidoPor: currentUserName, 
                             dataResolvido: serverTimestamp()
                         });
+                        enviarNotificacaoPush("Alerta Resolvido ✅", `O alerta "${tituloNotif}" foi marcado como resolvido por ${currentUserName}.`);
                     } catch (erro) {
                         console.error("Erro ao resolver:", erro);
                         alert("Falha ao atualizar o status.");
@@ -259,10 +261,12 @@
                 botao.addEventListener('click', async (e) => {
                     if(!confirm("Tem certeza que deseja reabrir este alerta?")) return;
                     const idParaReverter = e.currentTarget.getAttribute('data-id');
+                    const tituloNotif = e.currentTarget.getAttribute('data-titulo');
                     try {
                         await updateDoc(doc(db, "notificacoes", idParaReverter), {
                             resolvido: false, resolvidoPor: null, dataResolvido: null
                         });
+                        enviarNotificacaoPush("Alerta Reaberto 🔄", `O alerta "${tituloNotif}" voltou para os pendentes.`);
                     } catch (erro) { console.error(erro); }
                 });
             });
@@ -270,18 +274,31 @@
             document.querySelectorAll('.btn-complementar').forEach(botao => {
                 botao.addEventListener('click', (e) => {
                     const idParaComplementar = e.currentTarget.getAttribute('data-id');
-                    abrirModalComplemento(idParaComplementar);
+                    const tituloNotif = e.currentTarget.getAttribute('data-titulo');
+                    abrirModalComplemento(idParaComplementar, tituloNotif);
                 });
             });
+        }
+
+        async function enviarNotificacaoPush(titulo, descricao) {
+            try {
+                await fetch("/api/disparar", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": "Bearer admin_secret_key" },
+                    body: JSON.stringify({ titulo, descricao })
+                });
+            } catch(e) { console.error("Erro ao notificar:", e); }
         }
 
         // Lógica do Modal
         const modalComplemento = document.getElementById('modal-complemento');
         const txtComplemento = document.getElementById('texto-complemento');
         let currentAlertId = null;
+        let currentAlertTitulo = "";
 
-        function abrirModalComplemento(id) {
+        function abrirModalComplemento(id, titulo) {
             currentAlertId = id;
+            currentAlertTitulo = titulo;
             txtComplemento.value = "";
             modalComplemento.classList.remove('hidden');
             txtComplemento.focus();
@@ -289,6 +306,7 @@
         function fecharModal() {
             modalComplemento.classList.add('hidden');
             currentAlertId = null;
+            currentAlertTitulo = "";
         }
 
         document.getElementById('btn-close-modal').addEventListener('click', fecharModal);
@@ -311,6 +329,9 @@
                 await updateDoc(doc(db, "notificacoes", currentAlertId), {
                     complementos: arrayUnion(novoComplemento)
                 });
+                
+                enviarNotificacaoPush("Nova Observação 💬", `${currentUserName} adicionou uma observação no alerta "${currentAlertTitulo}".`);
+                
                 fecharModal();
             } catch(e) {
                 console.error("Erro ao salvar observação:", e);
