@@ -4,15 +4,29 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Método não permitido' });
   }
 
+  // 🔒 Verifica o Header de Autorização
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.replace('Bearer ', '');
+  const API_SECRET = process.env.API_SECRET || 'admin_secret_key'; 
+
+  if (token !== API_SECRET) {
+    return res.status(401).json({ message: 'Não autorizado' });
+  }
+
   // Recebe o título e a descrição que vieram do seu painel Admin
   const { titulo, descricao } = req.body;
+  const onesignalKey = process.env.ONESIGNAL_API_KEY;
+
+  if (!onesignalKey) {
+    return res.status(500).json({ error: "ONESIGNAL_API_KEY não configurada no servidor." });
+  }
 
   try {
     const response = await fetch("https://onesignal.com/api/v1/notifications", {
       method: "POST",
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Authorization": "Basic os_v2_app_2oylq7jiebfbtpjhbdvuqp47isngifqrd3ruw4m3zdmplw43ue5ff7ldhzalujpewjfbf64ami3ijrq2y7abir5gb3mpfsz3cesyjkq"
+        "Authorization": `Basic ${onesignalKey}`
       },
       body: JSON.stringify({
         app_id: "d3b0b87d-2820-4a19-bd27-08eb483f9f44",
