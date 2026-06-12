@@ -7,16 +7,16 @@
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1f2c33">
+    <script src="pwa-setup.js" defer></script>
+    <link rel="stylesheet" href="global.css">
     
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
-        body { background-color: #f0f2f5; height: 100vh; display: flex; flex-direction: column; }
+        body { height: 100vh; display: flex; flex-direction: column; }
 
-        .chat-header { background-color: #1f2c33; color: white; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 10; }
+        .chat-header { background-color: var(--primary); color: white; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 10; }
         .chat-header .left-side { display: flex; align-items: center; gap: 15px; }
         .chat-header .back-btn { text-decoration: none; font-size: 1.2rem; }
         .chat-header h2 { font-size: 1.1rem; font-weight: 500; }
-        .user-badge { background: rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; }
 
         .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 
@@ -24,13 +24,13 @@
         .message.received { background-color: #ffffff; align-self: flex-start; border-top-left-radius: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         .message.sent { background-color: #dcf8c6; align-self: flex-end; border-top-right-radius: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         
-        .sender-name { font-size: 0.75rem; color: #00a884; font-weight: bold; margin-bottom: 4px; }
-        .message-time { font-size: 0.7rem; color: #667781; align-self: flex-end; margin-top: 5px; margin-left: 15px; }
+        .sender-name { font-size: 0.75rem; color: var(--accent); font-weight: bold; margin-bottom: 4px; }
+        .message-time { font-size: 0.7rem; color: var(--text-sub); align-self: flex-end; margin-top: 5px; margin-left: 15px; }
 
         .chat-footer { background-color: #ffffff; padding: 10px 15px; display: flex; align-items: center; gap: 10px; box-shadow: 0 -1px 5px rgba(0,0,0,0.05); }
-        .chat-footer input[type="text"] { flex: 1; padding: 12px 15px; border: 1px solid #ddd; border-radius: 20px; background-color: #f0f2f5; outline: none; font-size: 0.95rem; }
-        .chat-footer input[type="text"]:focus { border: 1px solid #00a884; }
-        .send-btn { background-color: #00a884; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.1rem; }
+        .chat-footer input[type="text"] { flex: 1; padding: 12px 15px; border: 1px solid #ddd; border-radius: 20px; background-color: var(--bg); outline: none; font-size: 0.95rem; }
+        .chat-footer input[type="text"]:focus { border: 1px solid var(--accent); }
+        .send-btn { background-color: var(--accent); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.1rem; }
     </style>
 
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -65,18 +65,9 @@
     </footer>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js').catch((err) => console.log(err));
-        }
-
-        const firebaseConfig = { apiKey: "AIzaSyAcayaTwgVdyGQJpMvvHF3AX7FXTEvFopY", authDomain: "mensageiro-mtz.firebaseapp.com", projectId: "mensageiro-mtz", storageBucket: "mensageiro-mtz.firebasestorage.app", messagingSenderId: "111747514886", appId: "1:111747514886:web:d87c69893640606efab987" };
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, getDoc, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { auth, db } from "./firebase-config.js";
 
         let currentUser = null;
         let currentUserName = "Usuário";
@@ -124,13 +115,15 @@
         btnEnviar.addEventListener('click', enviarMensagem);
         inputMensagem.addEventListener('keypress', (e) => { if (e.key === 'Enter') enviarMensagem(); });
 
-        const q = query(collection(db, "mensagens"), orderBy("timestamp", "asc"));
+        const q = query(collection(db, "mensagens"), orderBy("timestamp", "desc"), limit(50));
 
         onSnapshot(q, (snapshot) => {
             areaMensagens.innerHTML = "";
+            let mensagens = [];
+            snapshot.forEach(docSnap => mensagens.push(docSnap.data()));
+            mensagens.reverse(); // Coloca em ordem cronológica para exibição
 
-            snapshot.forEach((docSnap) => {
-                const msg = docSnap.data();
+            mensagens.forEach((msg) => {
                 if(!msg.uid || !msg.texto) return;
 
                 const isMinha = currentUser && msg.uid === currentUser.uid;

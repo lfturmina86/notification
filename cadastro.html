@@ -4,38 +4,21 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1f2c33">
 
-<script>
-  // Registra o Service Worker em segundo plano
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
-      .then(() => console.log('PWA Ativo com Sucesso!'))
-      .catch((err) => console.log('Erro ao registrar PWA:', err));
-  }
-</script>
+<script src="pwa-setup.js" defer></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cadastro de Equipe - Admin</title>
+    <link rel="stylesheet" href="global.css">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
-        body { background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        body { display: flex; flex-direction: column; align-items: center; padding: 20px; }
         .header-admin { width: 100%; max-width: 500px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
-        .header-admin a { text-decoration: none; color: #1f2c33; font-weight: bold; background: white; padding: 8px 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
+        .header-admin a { text-decoration: none; color: var(--primary); font-weight: bold; background: white; padding: 8px 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
         
         .admin-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); width: 100%; max-width: 500px; }
-        .admin-card h2 { color: #1f2c33; margin-bottom: 20px; font-size: 1.3rem; border-bottom: 2px solid #00a884; padding-bottom: 10px; display: inline-block;}
+        .admin-card h2 { color: var(--primary); margin-bottom: 20px; font-size: 1.3rem; border-bottom: 2px solid var(--accent); padding-bottom: 10px; display: inline-block;}
         
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; font-size: 0.9rem; color: #111b21; margin-bottom: 5px; font-weight: 500; }
-        .input-group input, .input-group select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; outline: none; }
-        .input-group input:focus, .input-group select:focus { border-color: #00a884; }
-        
-        /* Divisor visual para separar dados de login de dados de perfil */
-        .divisor { margin: 20px 0; border-top: 1px dashed #ccc; padding-top: 15px; color: #667781; font-size: 0.85rem; font-weight: bold; text-transform: uppercase; }
-
-        .btn-salvar { background-color: #00a884; color: white; border: none; width: 100%; padding: 15px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .btn-salvar:hover { background-color: #008f6f; }
-        .btn-salvar:disabled { background-color: #99d4c8; cursor: not-allowed; }
-        #msg-sucesso { display: none; color: #10b981; text-align: center; margin-top: 15px; font-weight: 500; }
+        .divisor { margin: 20px 0; border-top: 1px dashed #ccc; padding-top: 15px; color: var(--text-sub); font-size: 0.85rem; font-weight: bold; text-transform: uppercase; }
+        #msg-sucesso { display: none; color: var(--success); text-align: center; margin-top: 15px; font-weight: 500; }
     </style>
 </head>
 <body>
@@ -81,20 +64,14 @@
             <input type="text" id="cad-cargo" placeholder="Ex: Operador de Máquina" required>
         </div>
 
-        <button class="btn-salvar" id="btn-cadastrar">Criar Usuário e Salvar Dados</button>
+        <button class="btn-primary" id="btn-cadastrar">Criar Usuário e Salvar Dados</button>
         <div id="msg-sucesso">Funcionário cadastrado com sucesso!</div>
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        // Importamos o Auth para criar a senha e o Firestore para criar o perfil
-        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-        const firebaseConfig = { apiKey: "AIzaSyAcayaTwgVdyGQJpMvvHF3AX7FXTEvFopY", authDomain: "mensageiro-mtz.firebaseapp.com", projectId: "mensageiro-mtz", storageBucket: "mensageiro-mtz.firebasestorage.app", messagingSenderId: "111747514886", appId: "1:111747514886:web:d87c69893640606efab987" };
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { auth, db } from "./firebase-config.js";
 
         const btnCadastrar = document.getElementById('btn-cadastrar');
         const msgSucesso = document.getElementById('msg-sucesso');

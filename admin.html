@@ -7,32 +7,26 @@
 
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1f2c33">
+    <script src="pwa-setup.js" defer></script>
+    <link rel="stylesheet" href="global.css">
 
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
-        body { background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        body { display: flex; flex-direction: column; align-items: center; padding: 20px; }
         .header-admin { width: 100%; max-width: 600px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
-        .header-admin a { text-decoration: none; color: #1f2c33; font-weight: bold; background: white; padding: 8px 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
+        .header-admin a { text-decoration: none; color: var(--primary); font-weight: bold; background: white; padding: 8px 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
         
         .admin-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); width: 100%; max-width: 600px; margin-bottom: 20px; }
-        .admin-card h2 { color: #1f2c33; margin-bottom: 20px; font-size: 1.3rem; border-bottom: 2px solid #00a884; padding-bottom: 10px; display: inline-block;}
+        .admin-card h2 { color: var(--primary); margin-bottom: 20px; font-size: 1.3rem; border-bottom: 2px solid var(--accent); padding-bottom: 10px; display: inline-block;}
         
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; font-size: 0.9rem; color: #111b21; margin-bottom: 5px; font-weight: 500; }
-        .input-group input, .input-group select, .input-group textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; outline: none; }
-        .input-group input:focus, .input-group select:focus, .input-group textarea:focus { border-color: #00a884; }
         textarea { resize: vertical; min-height: 80px; }
-        .btn-enviar { background-color: #00a884; color: white; border: none; width: 100%; padding: 15px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .btn-enviar:hover { background-color: #008f6f; }
-        .btn-enviar:disabled { background-color: #99d4c8; cursor: not-allowed; }
-        #msg-sucesso { display: none; color: #10b981; text-align: center; margin-top: 15px; font-weight: 500; }
+        #msg-sucesso { display: none; color: var(--success); text-align: center; margin-top: 15px; font-weight: 500; }
 
         #area-gerenciamento { display: none; }
         .lista-admin { display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; padding-right: 5px; }
         .item-admin { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; }
         .item-admin-info { flex: 1; }
-        .item-admin-info strong { display: block; font-size: 0.95rem; color: #111b21; }
-        .item-admin-info span { font-size: 0.8rem; color: #667781; }
+        .item-admin-info strong { display: block; font-size: 0.95rem; color: var(--text-main); }
+        .item-admin-info span { font-size: 0.8rem; color: var(--text-sub); }
         .badge-status { font-size: 0.75rem; padding: 3px 8px; border-radius: 10px; font-weight: bold; margin-top: 5px; display: inline-block; }
         .status-pendente { background: #fef3c7; color: #d97706; }
         .status-resolvido { background: #d1fae5; color: #059669; }
@@ -73,7 +67,7 @@
             <textarea id="desc-alerta" placeholder="Ex: A máquina será parada às 14:00 para troca de fresas." required></textarea>
         </div>
 
-        <button class="btn-enviar" id="btn-disparar">Enviar para a Equipe</button>
+        <button class="btn-primary" id="btn-disparar">Enviar para a Equipe</button>
         <div id="msg-sucesso">Alerta enviado com sucesso!</div>
     </div>
 
@@ -87,26 +81,9 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, deleteDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-        // Registro do PWA
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js').catch((err) => console.log(err));
-        }
-
-        const firebaseConfig = { apiKey: "AIzaSyAcayaTwgVdyGQJpMvvHF3AX7FXTEvFopY", authDomain: "mensageiro-mtz.firebaseapp.com", projectId: "mensageiro-mtz", storageBucket: "mensageiro-mtz.firebasestorage.app", messagingSenderId: "111747514886", appId: "1:111747514886:web:d87c69893640606efab987" };
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
-        // ========================================================
-        // 🔒 CONTROLE DE ACESSO (Mude o e-mail aqui!)
-        // ========================================================
-        const emailsAdministradores = [
-            "luis@matrezan.com.br" // <--- ALTERE AQUI PARA O SEU E-MAIL
-        ];
+        import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, deleteDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { auth, db, ADMIN_EMAILS } from "./firebase-config.js";
 
         let currentUserEmail = "Desconhecido";
         let currentUserName = "Sistema";
@@ -126,7 +103,7 @@
                     }
                 } catch (e) { console.error(e); }
                 
-                if (emailsAdministradores.includes(currentUserEmail)) {
+                if (ADMIN_EMAILS.includes(currentUserEmail)) {
                     document.getElementById('area-gerenciamento').style.display = 'block';
                     document.getElementById('badge-admin').style.display = 'inline-block';
                     carregarListaGerenciamento();
@@ -159,10 +136,12 @@
                     timestamp: serverTimestamp()
                 });
 
-                // 2. Chama o nosso próprio servidor Vercel para estourar o alerta no celular
                 const resposta = await fetch("/api/disparar", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer admin_secret_key"
+                    },
                     body: JSON.stringify({ titulo: titulo, descricao: descricao })
                 });
 

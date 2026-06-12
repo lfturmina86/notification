@@ -4,21 +4,13 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1f2c33">
 
-<script>
-  // Registra o Service Worker em segundo plano
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
-      .then(() => console.log('PWA Ativo com Sucesso!'))
-      .catch((err) => console.log('Erro ao registrar PWA:', err));
-  }
-</script>
+<script src="pwa-setup.js" defer></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Login - Sistema Interno</title>
+    <link rel="stylesheet" href="global.css">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
         body { 
-            background-color: #f0f2f5; 
             height: 100vh; 
             display: flex; 
             align-items: center; 
@@ -36,38 +28,9 @@
             text-align: center;
         }
 
-        .login-card h2 { color: #1f2c33; margin-bottom: 5px; }
-        .login-card p { color: #667781; font-size: 0.9rem; margin-bottom: 25px; }
-
-        .input-group { margin-bottom: 15px; text-align: left; }
-        .input-group label { display: block; font-size: 0.85rem; color: #111b21; margin-bottom: 5px; }
-        .input-group input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 1rem;
-            outline: none;
-        }
-        .input-group input:focus { border-color: #00a884; }
-
-        .btn-login {
-            background-color: #00a884;
-            color: white;
-            border: none;
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 10px;
-            transition: background 0.3s;
-        }
-        .btn-login:hover { background-color: #008f6f; }
-        .btn-login:disabled { background-color: #99d4c8; cursor: not-allowed; }
-
-        .erro-msg { color: #ef4444; font-size: 0.85rem; margin-top: 10px; display: none; }
+        .login-card h2 { color: var(--primary); margin-bottom: 5px; }
+        .login-card p { color: var(--text-sub); font-size: 0.9rem; margin-bottom: 25px; }
+        .erro-msg { color: var(--danger); font-size: 0.85rem; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
@@ -86,26 +49,13 @@
             <input type="password" id="senha" placeholder="••••••••" required>
         </div>
 
-        <button class="btn-login" id="btn-entrar">Entrar no Sistema</button>
+        <button class="btn-primary" id="btn-entrar">Entrar no Sistema</button>
         <p class="erro-msg" id="mensagem-erro">E-mail ou senha incorretos.</p>
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        // Importamos o módulo de Autenticação
-        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyAcayaTwgVdyGQJpMvvHF3AX7FXTEvFopY",
-            authDomain: "mensageiro-mtz.firebaseapp.com",
-            projectId: "mensageiro-mtz",
-            storageBucket: "mensageiro-mtz.firebasestorage.app",
-            messagingSenderId: "111747514886",
-            appId: "1:111747514886:web:d87c69893640606efab987"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
+        import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { auth } from "./firebase-config.js";
 
         const btnEntrar = document.getElementById('btn-entrar');
         const inputEmail = document.getElementById('email');

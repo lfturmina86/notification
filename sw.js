@@ -34,11 +34,21 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Intercepta as requisições para carregar do cache se estiver offline
+// Intercepta as requisições (Stale-while-revalidate)
 self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(e.request).then((cachedResponse) => {
-      return cachedResponse || fetch(e.request);
+      const fetchPromise = fetch(e.request).then((networkResponse) => {
+        if (e.request.method === 'GET') {
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(e.request, networkResponse.clone());
+          });
+        }
+        return networkResponse;
+      }).catch(() => {
+        // Ignora erro se estiver offline
+      });
+      return cachedResponse || fetchPromise;
     })
   );
 });
