@@ -40,6 +40,23 @@
 </head>
 <body>
 
+    <!-- Modal Complemento -->
+    <div id="modal-complemento" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Adicionar Observação Oficial</div>
+                <button class="modal-close" id="btn-close-modal">&times;</button>
+            </div>
+            <div class="input-group">
+                <textarea id="texto-complemento" placeholder="Ex: Peça encomendada, prazo 2 dias..." rows="4"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secundary" id="btn-cancel-modal">Cancelar</button>
+                <button class="btn-primary" id="btn-save-complemento" style="width: auto;">Salvar Observação</button>
+            </div>
+        </div>
+    </div>
+
     <div class="header-admin">
         <a href="index.html">⬅️ Voltar ao Painel</a>
         <span id="badge-admin" style="display:none; background:#1f2c33; color:white; padding:5px 10px; border-radius:20px; font-size:0.8rem;">Modo Administrador</span>
@@ -81,7 +98,7 @@
     </div>
 
     <script type="module">
-        import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, deleteDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, deleteDoc, getDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
         import { auth, db, ADMIN_EMAILS } from "./firebase-config.js";
 
@@ -193,20 +210,36 @@
                     const statusTexto = n.resolvido ? "✅ Resolvido" : "⚠️ Pendente";
                     const nomeExibicao = n.criadoPorNome || n.criadoPor || 'Sistema';
 
+                    let complementosHtml = "";
+                    if (n.complementos && n.complementos.length > 0) {
+                        complementosHtml = `<div class="complementos-list" style="margin-top: 10px; border-top: 1px dashed #eee; padding-top: 10px;">`;
+                        n.complementos.forEach(comp => {
+                            const compDataStr = comp.timestamp && comp.timestamp.toDate ? comp.timestamp.toDate().toLocaleDateString('pt-BR') + ' ' + comp.timestamp.toDate().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}) : 'Agora';
+                            complementosHtml += `
+                                <div style="font-size: 0.8rem; margin-bottom: 5px;">
+                                    <strong style="color: var(--accent);">${comp.autor}</strong> (${compDataStr}): ${comp.texto}
+                                </div>
+                            `;
+                        });
+                        complementosHtml += `</div>`;
+                    }
+
                     const item = document.createElement('div');
                     item.className = 'item-admin';
                     
-                    let botoesAcao = `<button class="btn-deletar-admin" data-id="${id}" title="Excluir Definitivamente">🗑️</button>`;
+                    let botoesAcao = `<button class="btn-secundary btn-complementar-admin" style="background:var(--accent); color:white; border-radius:50%; width:30px; height:30px; padding:0; display:flex; align-items:center; justify-content:center;" data-id="${id}" title="Adicionar Observação">💬</button>`;
                     if (n.resolvido) {
-                        botoesAcao = `<button class="btn-reverter-admin" data-id="${id}" title="Voltar para Pendente">🔄 Reverter</button>` + botoesAcao;
+                        botoesAcao += `<button class="btn-reverter-admin" data-id="${id}" title="Voltar para Pendente">🔄 Reverter</button>`;
                     }
+                    botoesAcao += `<button class="btn-deletar-admin" data-id="${id}" title="Excluir Definitivamente">🗑️</button>`;
 
                     item.innerHTML = `
-                        <div class="item-admin-info">
+                        <div class="item-admin-info" style="max-width: 70%;">
                             <strong>${n.titulo}</strong>
                             <span>Enviado por: ${nomeExibicao} em ${dataFormatada}</span>
                             <br>
                             <span class="badge-status ${statusClass}">${statusTexto}</span>
+                            ${complementosHtml}
                         </div>
                         <div class="acoes-admin">
                             ${botoesAcao}
@@ -239,8 +272,61 @@
                         }
                     });
                 });
+
+                document.querySelectorAll('.btn-complementar-admin').forEach(botao => {
+                    botao.addEventListener('click', (e) => {
+                        const idParaComplementar = e.currentTarget.getAttribute('data-id');
+                        abrirModalComplemento(idParaComplementar);
+                    });
+                });
             });
         }
+
+        // Lógica do Modal
+        const modalComplemento = document.getElementById('modal-complemento');
+        const txtComplemento = document.getElementById('texto-complemento');
+        let currentAlertId = null;
+
+        function abrirModalComplemento(id) {
+            currentAlertId = id;
+            txtComplemento.value = "";
+            modalComplemento.classList.remove('hidden');
+            txtComplemento.focus();
+        }
+        function fecharModal() {
+            modalComplemento.classList.add('hidden');
+            currentAlertId = null;
+        }
+
+        document.getElementById('btn-close-modal').addEventListener('click', fecharModal);
+        document.getElementById('btn-cancel-modal').addEventListener('click', fecharModal);
+        document.getElementById('btn-save-complemento').addEventListener('click', async () => {
+            const texto = txtComplemento.value.trim();
+            if(!texto) return alert("Digite a observação.");
+            if(!currentAlertId) return;
+            
+            const btn = document.getElementById('btn-save-complemento');
+            btn.disabled = true;
+            btn.textContent = "Salvando...";
+            
+            try {
+                const novoComplemento = {
+                    texto: texto,
+                    autor: currentUserName + " (Admin)",
+                    timestamp: new Date()
+                };
+                await updateDoc(doc(db, "notificacoes", currentAlertId), {
+                    complementos: arrayUnion(novoComplemento)
+                });
+                fecharModal();
+            } catch(e) {
+                console.error("Erro ao salvar observação:", e);
+                alert("Falha ao salvar observação.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Salvar Observação";
+            }
+        });
     </script>
 </body>
 </html>

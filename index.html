@@ -49,6 +49,23 @@
 </head>
 <body>
 
+    <!-- Modal Complemento -->
+    <div id="modal-complemento" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Adicionar Observação</div>
+                <button class="modal-close" id="btn-close-modal">&times;</button>
+            </div>
+            <div class="input-group">
+                <textarea id="texto-complemento" placeholder="Ex: Peça substituída com sucesso..." rows="4"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secundary" id="btn-cancel-modal">Cancelar</button>
+                <button class="btn-primary" id="btn-save-complemento" style="width: auto;">Salvar Observação</button>
+            </div>
+        </div>
+    </div>
+
     <header>
         <h1>Central de Alertas</h1>
         <div class="user-badge" id="user-display">Carregando...</div>
@@ -70,7 +87,7 @@
 
     <script type="module">
         import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-        import { collection, onSnapshot, query, orderBy, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { collection, onSnapshot, query, orderBy, doc, getDoc, updateDoc, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
         import { auth, db, messaging, VAPID_KEY } from "./firebase-config.js";
 
@@ -166,6 +183,21 @@
                 let horaResolvido = "";
                 if (notif.dataResolvido) horaResolvido = notif.dataResolvido.toDate().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 
+                let complementosHtml = "";
+                if (notif.complementos && notif.complementos.length > 0) {
+                    complementosHtml = `<div class="complementos-list">`;
+                    notif.complementos.forEach(comp => {
+                        const compDataStr = comp.timestamp && comp.timestamp.toDate ? comp.timestamp.toDate().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Agora';
+                        complementosHtml += `
+                            <div class="complemento-item">
+                                <div class="complemento-meta">${comp.autor} - ${compDataStr}</div>
+                                <div>${comp.texto}</div>
+                            </div>
+                        `;
+                    });
+                    complementosHtml += `</div>`;
+                }
+
                 const card = document.createElement('div');
                 card.className = `n-card ${notif.gravidade}`;
                 
@@ -186,20 +218,29 @@
                                 </div>
                                 ` : ''}
                             </div>
+                            ${complementosHtml}
                         </div>
                     </div>
                 `;
 
+                let divActions = `<div style="display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; flex-wrap: wrap;">`;
                 if (!notif.resolvido) {
-                    htmlCard += `<button class="btn-resolver" data-id="${notif.id}">✅ Marcar como Resolvido</button>`;
+                    divActions += `<button class="btn-secundary btn-complementar" data-id="${notif.id}">💬 Observação</button>`;
+                    divActions += `<button class="btn-resolver" data-id="${notif.id}">✅ Marcar Resolvido</button>`;
+                } else {
+                    divActions += `<button class="btn-secundary btn-complementar" data-id="${notif.id}">💬 Observação</button>`;
+                    divActions += `<button class="btn-reverter" style="background:#e9edef; border:none; padding:8px 15px; border-radius:8px; cursor:pointer;" data-id="${notif.id}">🔄 Reabrir Alerta</button>`;
                 }
-
+                divActions += `</div>`;
+                
+                htmlCard += divActions;
                 card.innerHTML = htmlCard;
                 areaNotificacoes.appendChild(card);
             });
 
             document.querySelectorAll('.btn-resolver').forEach(botao => {
                 botao.addEventListener('click', async (e) => {
+                    if(!confirm("Tem certeza que deseja marcar este alerta como resolvido?")) return;
                     const idParaResolver = e.currentTarget.getAttribute('data-id');
                     try {
                         await updateDoc(doc(db, "notificacoes", idParaResolver), {
@@ -213,7 +254,72 @@
                     }
                 });
             });
+
+            document.querySelectorAll('.btn-reverter').forEach(botao => {
+                botao.addEventListener('click', async (e) => {
+                    if(!confirm("Tem certeza que deseja reabrir este alerta?")) return;
+                    const idParaReverter = e.currentTarget.getAttribute('data-id');
+                    try {
+                        await updateDoc(doc(db, "notificacoes", idParaReverter), {
+                            resolvido: false, resolvidoPor: null, dataResolvido: null
+                        });
+                    } catch (erro) { console.error(erro); }
+                });
+            });
+
+            document.querySelectorAll('.btn-complementar').forEach(botao => {
+                botao.addEventListener('click', (e) => {
+                    const idParaComplementar = e.currentTarget.getAttribute('data-id');
+                    abrirModalComplemento(idParaComplementar);
+                });
+            });
         }
+
+        // Lógica do Modal
+        const modalComplemento = document.getElementById('modal-complemento');
+        const txtComplemento = document.getElementById('texto-complemento');
+        let currentAlertId = null;
+
+        function abrirModalComplemento(id) {
+            currentAlertId = id;
+            txtComplemento.value = "";
+            modalComplemento.classList.remove('hidden');
+            txtComplemento.focus();
+        }
+        function fecharModal() {
+            modalComplemento.classList.add('hidden');
+            currentAlertId = null;
+        }
+
+        document.getElementById('btn-close-modal').addEventListener('click', fecharModal);
+        document.getElementById('btn-cancel-modal').addEventListener('click', fecharModal);
+        document.getElementById('btn-save-complemento').addEventListener('click', async () => {
+            const texto = txtComplemento.value.trim();
+            if(!texto) return alert("Digite a observação.");
+            if(!currentAlertId) return;
+            
+            const btn = document.getElementById('btn-save-complemento');
+            btn.disabled = true;
+            btn.textContent = "Salvando...";
+            
+            try {
+                const novoComplemento = {
+                    texto: texto,
+                    autor: currentUserName,
+                    timestamp: new Date()
+                };
+                await updateDoc(doc(db, "notificacoes", currentAlertId), {
+                    complementos: arrayUnion(novoComplemento)
+                });
+                fecharModal();
+            } catch(e) {
+                console.error("Erro ao salvar observação:", e);
+                alert("Falha ao salvar observação.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Salvar Observação";
+            }
+        });
     </script>
 </body>
 </html>
