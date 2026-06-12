@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     });
 
     if (tokens.length === 0) {
-      return res.status(200).json({ message: 'Nenhum dispositivo registrado para receber alertas.' });
+      return res.status(400).json({ error: 'Nenhum dispositivo ativou as notificações ainda. Peça para a equipe clicar no botão "Ativar Alertas" na tela inicial.' });
     }
 
     const message = {
