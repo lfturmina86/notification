@@ -1,0 +1,11 @@
+{
+  "name": "mensageiro-mtz",
+  "version": "1.0.0",
+  "description": "Sistema Interno de Alertas e Comunicação",
+  "scripts": {
+    "start": "node api/disparar.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.1.0"
+  }
+}

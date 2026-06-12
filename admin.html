@@ -146,7 +146,13 @@
                 });
 
                 if (!resposta.ok) {
-                    throw new Error("Erro na ponte com o servidor da Vercel.");
+                    let detalhesErro = "Erro na ponte com o servidor da Vercel.";
+                    try {
+                        const errorBody = await resposta.json();
+                        if (errorBody.error) detalhesErro += " Detalhe: " + errorBody.error;
+                        else if (errorBody.message) detalhesErro += " Detalhe: " + errorBody.message;
+                    } catch(e) {}
+                    throw new Error(detalhesErro);
                 }
 
                 // Limpa o formulário e confirma o envio
