@@ -227,9 +227,9 @@
                     const item = document.createElement('div');
                     item.className = 'item-admin';
                     
-                    let botoesAcao = `<button class="btn-secundary btn-complementar-admin" style="background:var(--accent); color:white; border-radius:50%; width:30px; height:30px; padding:0; display:flex; align-items:center; justify-content:center;" data-id="${id}" title="Adicionar Observação">💬</button>`;
+                    let botoesAcao = `<button class="btn-secundary btn-complementar-admin" style="background:var(--accent); color:white; border-radius:50%; width:30px; height:30px; padding:0; display:flex; align-items:center; justify-content:center;" data-id="${id}" data-titulo="${n.titulo}" title="Adicionar Observação">💬</button>`;
                     if (n.resolvido) {
-                        botoesAcao += `<button class="btn-reverter-admin" data-id="${id}" title="Voltar para Pendente">🔄 Reverter</button>`;
+                        botoesAcao += `<button class="btn-reverter-admin" data-id="${id}" data-titulo="${n.titulo}" title="Voltar para Pendente">🔄 Reverter</button>`;
                     }
                     botoesAcao += `<button class="btn-deletar-admin" data-id="${id}" title="Excluir Definitivamente">🗑️</button>`;
 
@@ -263,11 +263,13 @@
                 document.querySelectorAll('.btn-reverter-admin').forEach(botao => {
                     botao.addEventListener('click', async (e) => {
                         const idParaReverter = e.currentTarget.getAttribute('data-id');
+                        const tituloNotif = e.currentTarget.getAttribute('data-titulo');
                         if(confirm("Deseja voltar esta notificação para a lista de Pendentes?")) {
                             try {
                                 await updateDoc(doc(db, "notificacoes", idParaReverter), {
                                     resolvido: false, resolvidoPor: null, dataResolvido: null
                                 });
+                                enviarNotificacaoPush("Alerta Reaberto 🔄", `O alerta "${tituloNotif}" voltou para os pendentes.`);
                             } catch (erro) { console.error(erro); }
                         }
                     });
@@ -276,19 +278,32 @@
                 document.querySelectorAll('.btn-complementar-admin').forEach(botao => {
                     botao.addEventListener('click', (e) => {
                         const idParaComplementar = e.currentTarget.getAttribute('data-id');
-                        abrirModalComplemento(idParaComplementar);
+                        const tituloNotif = e.currentTarget.getAttribute('data-titulo');
+                        abrirModalComplemento(idParaComplementar, tituloNotif);
                     });
                 });
             });
+        }
+
+        async function enviarNotificacaoPush(titulo, descricao) {
+            try {
+                await fetch("/api/disparar", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": "Bearer admin_secret_key" },
+                    body: JSON.stringify({ titulo, descricao })
+                });
+            } catch(e) { console.error("Erro ao notificar:", e); }
         }
 
         // Lógica do Modal
         const modalComplemento = document.getElementById('modal-complemento');
         const txtComplemento = document.getElementById('texto-complemento');
         let currentAlertId = null;
+        let currentAlertTitulo = "";
 
-        function abrirModalComplemento(id) {
+        function abrirModalComplemento(id, titulo) {
             currentAlertId = id;
+            currentAlertTitulo = titulo;
             txtComplemento.value = "";
             modalComplemento.classList.remove('hidden');
             txtComplemento.focus();
@@ -296,6 +311,7 @@
         function fecharModal() {
             modalComplemento.classList.add('hidden');
             currentAlertId = null;
+            currentAlertTitulo = "";
         }
 
         document.getElementById('btn-close-modal').addEventListener('click', fecharModal);
@@ -318,6 +334,9 @@
                 await updateDoc(doc(db, "notificacoes", currentAlertId), {
                     complementos: arrayUnion(novoComplemento)
                 });
+                
+                enviarNotificacaoPush("Nova Observação (Admin) 💬", `${currentUserName} adicionou uma observação no alerta "${currentAlertTitulo}".`);
+                
                 fecharModal();
             } catch(e) {
                 console.error("Erro ao salvar observação:", e);
