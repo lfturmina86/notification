@@ -1,10 +1,24 @@
+import admin from 'firebase-admin';
+
+// Inicializa o Firebase Admin
+if (!admin.apps.length) {
+  try {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao inicializar Firebase Admin', error);
+  }
+}
+
 export default async function handler(req, res) {
-  // Garante que só aceita pedidos do tipo POST
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Método não permitido' });
   }
 
-  // 🔒 Verifica o Header de Autorização
   const authHeader = req.headers.authorization || '';
   const token = authHeader.replace('Bearer ', '');
   const API_SECRET = process.env.API_SECRET || 'admin_secret_key'; 
@@ -13,32 +27,50 @@ export default async function handler(req, res) {
     return res.status(401).json({ message: 'Não autorizado' });
   }
 
-  // Recebe o título e a descrição que vieram do seu painel Admin
   const { titulo, descricao } = req.body;
-  const onesignalKey = process.env.ONESIGNAL_API_KEY;
 
-  if (!onesignalKey) {
-    return res.status(500).json({ error: "ONESIGNAL_API_KEY não configurada no servidor." });
+  if (!admin.apps.length) {
+     return res.status(500).json({ error: "FIREBASE_SERVICE_ACCOUNT não configurada corretamente no servidor." });
   }
 
   try {
-    const response = await fetch("https://onesignal.com/api/v1/notifications", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Authorization": `Basic ${onesignalKey}`
-      },
-      body: JSON.stringify({
-        app_id: "d3b0b87d-2820-4a19-bd27-08eb483f9f44",
-        included_segments: ["All"],
-        headings: { "en": titulo, "pt": titulo },
-        contents: { "en": descricao, "pt": descricao }
-      })
+    const db = admin.firestore();
+    const usuariosSnapshot = await db.collection('usuarios').get();
+    
+    const tokens = [];
+    usuariosSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.fcmToken) {
+        tokens.push(data.fcmToken);
+      }
     });
 
-    const data = await response.json();
-    return res.status(200).json(data);
+    if (tokens.length === 0) {
+      return res.status(200).json({ message: 'Nenhum dispositivo registrado para receber alertas.' });
+    }
+
+    const message = {
+      notification: {
+        title: titulo,
+        body: descricao
+      },
+      data: {
+        title: titulo,
+        descricao: descricao
+      },
+      tokens: tokens,
+    };
+
+    const response = await admin.messaging().sendEachForMulticast(message);
+    
+    return res.status(200).json({ 
+        success: true, 
+        enviados: response.successCount, 
+        falhas: response.failureCount 
+    });
+
   } catch (error) {
-    return res.status(500).json({ error: "Erro de comunicação com o servidor" });
+    console.error("Erro no FCM:", error);
+    return res.status(500).json({ error: "Erro interno no servidor ao disparar notificação." });
   }
 }
